@@ -78,4 +78,5 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-.vscode
+.vscode.idea/
+.idea/
