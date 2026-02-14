@@ -382,14 +382,12 @@ int print_db(int fd)
             printf(STUDENT_PRINT_HDR_STRING, "ID", "FIRST_NAME", "LAST_NAME", "GPA");
             didHeader = 1;
         }
-
         g = (float)s.gpa / 100.0f;
         printf(STUDENT_PRINT_FMT_STRING, s.id, s.fname, s.lname, g);
         foundAny = 1;
     }
 
     if (!foundAny) printf(M_DB_EMPTY);
-
     return NO_ERROR;
 }
 
