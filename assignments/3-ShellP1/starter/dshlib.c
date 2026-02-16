@@ -111,10 +111,37 @@ int free_cmd_list(command_list_t *cmd_lst)
  */
 int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff)
 {
-    // TODO: Implement this function
-    // For now, return an error to indicate it's not implemented
-    return ERR_MEMORY;
+    if (cmd_line == NULL || cmd_buff == NULL) return WARN_NO_CMDS;
+
+    while (*cmd_line && isspace((unsigned char)*cmd_line)) cmd_line++;
+    if (*cmd_line == '\0') return WARN_NO_CMDS;
+
+    int len = (int)strlen(cmd_line);
+    while (len > 0 && isspace((unsigned char)cmd_line[len - 1])) {
+        cmd_line[len - 1] = '\0';
+        len--;
+    }
+    if (len <= 0) return WARN_NO_CMDS;
+
+    strcpy(cmd_buff->_cmd_buffer, cmd_line);
+
+    cmd_buff->argc = 0;
+    for (int i = 0; i < CMD_ARGV_MAX; i++) cmd_buff->argv[i] = NULL;
+
+    char *tok = strtok(cmd_buff->_cmd_buffer, " \t");
+    while (tok != NULL) {
+        if (cmd_buff->argc >= CMD_ARGV_MAX - 1) break;
+        cmd_buff->argv[cmd_buff->argc] = tok;
+        cmd_buff->argc++;
+        tok = strtok(NULL, " \t");
+    }
+
+    cmd_buff->argv[cmd_buff->argc] = NULL;
+
+    if (cmd_buff->argc == 0) return WARN_NO_CMDS;
+    return OK;
 }
+
 
 /**
  * build_cmd_list - Parse command line with pipes into command_list_t
@@ -184,21 +211,67 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff)
  */
 int build_cmd_list(char *cmd_line, command_list_t *clist)
 {
-    // TODO: Implement this function
-    // This is the main function you need to implement for Part 1
-    
-    // Suggested approach:
-    // 1. Check if cmd_line is empty or all whitespace
-    // 2. Count pipe characters to ensure <= CMD_MAX-1
-    // 3. Use strtok to split by PIPE_CHAR
-    // 4. For each segment:
-    //    - Allocate cmd_buff
-    //    - Call build_cmd_buff
-    //    - Store in clist->commands[]
-    // 5. Set clist->num
-    
-    return ERR_MEMORY;  // Placeholder - replace with your implementation
+    if (cmd_line == NULL || clist == NULL) return WARN_NO_CMDS;
+
+    clist->num = 0;
+
+    while (*cmd_line && isspace((unsigned char)*cmd_line)) cmd_line++;
+    if (*cmd_line == '\0') return WARN_NO_CMDS;
+
+    int end = (int)strlen(cmd_line);
+    while (end > 0 && isspace((unsigned char)cmd_line[end - 1])) {
+        cmd_line[end - 1] = '\0';
+        end--;
+    }
+    if (end <= 0) return WARN_NO_CMDS;
+
+    int pipes = 0;
+    for (int i = 0; cmd_line[i] != '\0'; i++) {
+        if (cmd_line[i] == PIPE_CHAR) pipes++;
+    }
+    if (pipes + 1 > CMD_MAX) return ERR_TOO_MANY_COMMANDS;
+
+    char *save = NULL;
+    char *seg = strtok_r(cmd_line, PIPE_STRING, &save);
+
+    while (seg != NULL) {
+        while (*seg && isspace((unsigned char)*seg)) seg++;
+
+        int slen = (int)strlen(seg);
+        while (slen > 0 && isspace((unsigned char)seg[slen - 1])) {
+            seg[slen - 1] = '\0';
+            slen--;
+        }
+        if (slen <= 0) {
+            free_cmd_list(clist);
+            return WARN_NO_CMDS;
+        }
+
+        int rc = alloc_cmd_buff(&clist->commands[clist->num]);
+        if (rc != OK) {
+            free_cmd_list(clist);
+            return rc;
+        }
+
+        rc = build_cmd_buff(seg, &clist->commands[clist->num]);
+        if (rc != OK) {
+            free_cmd_buff(&clist->commands[clist->num]);
+            free_cmd_list(clist);
+            return rc;
+        }
+        clist->num++;
+        if (clist->num > CMD_MAX) {
+            free_cmd_list(clist);
+            return ERR_TOO_MANY_COMMANDS;
+        }
+
+        seg = strtok_r(NULL, PIPE_STRING, &save);
+    }
+
+    if (clist->num == 0) return WARN_NO_CMDS;
+    return OK;
 }
+
 
 //===================================================================
 // BUILT-IN COMMAND FUNCTIONS (PROVIDED FOR PART 1)
@@ -237,12 +310,52 @@ Built_In_Cmds exec_built_in_cmd(cmd_buff_t *cmd)
         case BI_CMD_EXIT:
             // Exit is handled in main loop
             return BI_CMD_EXIT;
-            
-        case BI_CMD_DRAGON:
-            // TODO: Extra credit - implement dragon here
-            printf("Dragon not implemented yet!\n");
+
+        case BI_CMD_DRAGON: {
+            static const char *d[] = {
+"                                                                        @%%%%                       ",
+"                                                                     %%%%%%                         ",
+"                                                                    %%%%%%                          ",
+"                                                                 % %%%%%%%           @              ",
+"                                                                %%%%%%%%%%        %%%%%%%           ",
+"                                       %%%%%%%  %%%%@         %%%%%%%%%%%%@    %%%%%%  @%%%%        ",
+"                                  %%%%%%%%%%%%%%%%%%%%%%      %%%%%%%%%%%%%%%%%%%%%%%%%%%%          ",
+"                                %%%%%%%%%%%%%%%%%%%%%%%%%%   %%%%%%%%%%%% %%%%%%%%%%%%%%%           ",
+"                               %%%%%%%%%%%%%%%%%%%%%%%%%%%%% %%%%%%%%%%%%%%%%%%%     %%%            ",
+"                             %%%%%%%%%%%%%%%%%%%%%%%%%%%%@ @%%%%%%%%%%%%%%%%%%        %%            ",
+"                            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% %%%%%%%%%%%%%%%%%%%%%%                ",
+"                            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%              ",
+"                            %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%@%%%%%%@              ",
+"      %%%%%%%%@           %%%%%%%%%%%%%%%%        %%%%%%%%%%%%%%%%%%%%%%%%%%      %%                ",
+"    %%%%%%%%%%%%%         %%@%%%%%%%%%%%%           %%%%%%%%%%% %%%%%%%%%%%%      @%                ",
+"  %%%%%%%%%%   %%%        %%%%%%%%%%%%%%            %%%%%%%%%%%%%%%%%%%%%%%%                        ",
+" %%%%%%%%%       %         %%%%%%%%%%%%%             %%%%%%%%%%%%@%%%%%%%%%%%                       ",
+"%%%%%%%%%@                % %%%%%%%%%%%%%            @%%%%%%%%%%%%%%%%%%%%%%%%%                     ",
+"%%%%%%%%@                 %%@%%%%%%%%%%%%            @%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  ",
+"%%%%%%%@                   %%%%%%%%%%%%%%%           %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%              ",
+"%%%%%%%%%%                  %%%%%%%%%%%%%%%          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%      %%%%  ",
+"%%%%%%%%%@                   @%%%%%%%%%%%%%%         %%%%%%%%%%%%@ %%%% %%%%%%%%%%%%%%%%%   %%%%%%%%",
+"%%%%%%%%%%                  %%%%%%%%%%%%%%%%%        %%%%%%%%%%%%%      %%%%%%%%%%%%%%%%%% %%%%%%%%%",
+"%%%%%%%%%@%%@                %%%%%%%%%%%%%%%%@       %%%%%%%%%%%%%%     %%%%%%%%%%%%%%%%%%%%%%%%  %%",
+" %%%%%%%%%%                  % %%%%%%%%%%%%%%@        %%%%%%%%%%%%%%   %%%%%%%%%%%%%%%%%%%%%%%%%% %%",
+"  %%%%%%%%%%%%  @           %%%%%%%%%%%%%%%%%%        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  %%% ",
+"   %%%%%%%%%%%%% %%  %  %@ %%%%%%%%%%%%%%%%%%          %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    %%% ",
+"    %%%%%%%%%%%%%%%%%% %%%%%%%%%%%%%%%%%%%%%%           @%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    %%%%%%% ",
+"     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%              %%%%%%%%%%%%%%%%%%%%%%%%%%%%        %%%   ",
+"      @%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                  %%%%%%%%%%%%%%%%%%%%%%%%%               ",
+"        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                      %%%%%%%%%%%%%%%%%%%  %%%%%%%          ",
+"           %%%%%%%%%%%%%%%%%%%%%%%%%%                           %%%%%%%%%%%%%%%  @%%%%%%%%%         ",
+"              %%%%%%%%%%%%%%%%%%%%           @%@%                  @%%%%%%%%%%%%%%%%%%   %%%        ",
+"                  %%%%%%%%%%%%%%%        %%%%%%%%%%                    %%%%%%%%%%%%%%%    %         ",
+"                %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%                      %%%%%%%%%%%%%%            ",
+"                %%%%%%%%%%%%%%%%%%%%%%%%%%  %%%% %%%                      %%%%%%%%%%  %%%@          ",
+"                     %%%%%%%%%%%%%%%%%%% %%%%%% %%                          %%%%%%%%%%%%%@          ",
+"                                                                                 %%%%%%%@           "
+            };
+            int n = (int)(sizeof(d) / sizeof(d[0]));
+            for (int i = 0; i < n; i++) puts(d[i]);
             return BI_EXECUTED;
-            
+        }
         case BI_CMD_CD:
             // CD will be implemented in Part 2
             printf("cd not implemented yet!\n");
@@ -358,12 +471,81 @@ Built_In_Cmds exec_built_in_cmd(cmd_buff_t *cmd)
  */
 int exec_local_cmd_loop()
 {
-    // TODO: Implement this function
-    // See detailed comments above for guidance
-    
+    char cmd_line[SH_CMD_MAX];
+    command_list_t clist;
+    int rc;
+
+    while (1) {
+        printf("%s", SH_PROMPT);
+
+        if (fgets(cmd_line, SH_CMD_MAX, stdin) == NULL) {
+            printf("\n");
+            break;
+        }
+
+        cmd_line[strcspn(cmd_line, "\n")] = '\0';
+
+        char *p = cmd_line;
+        while (*p && isspace((unsigned char)*p)) p++;
+
+        int plen = (int)strlen(p);
+        while (plen > 0 && isspace((unsigned char)p[plen - 1])) {
+            p[plen - 1] = '\0';
+            plen--;
+        }
+
+        if (*p == '\0') {
+            printf("%s", CMD_WARN_NO_CMD);
+            continue;
+        }
+
+        if (strcmp(p, EXIT_CMD) == 0) {
+            printf("exiting...\n");
+            break;
+        }
+
+        rc = build_cmd_list(p, &clist);
+
+        if (rc == WARN_NO_CMDS) {
+            printf("%s", CMD_WARN_NO_CMD);
+            continue;
+        }
+        if (rc == ERR_TOO_MANY_COMMANDS) {
+            printf(CMD_ERR_PIPE_LIMIT, CMD_MAX);
+            continue;
+        }
+        if (rc != OK) {
+            continue;
+        }
+
+        if (clist.num == 1 && clist.commands[0].argc == 1 &&
+            strcmp(clist.commands[0].argv[0], "dragon") == 0) {
+            exec_built_in_cmd(&clist.commands[0]);
+            free_cmd_list(&clist);
+            continue;
+        }
+
+        printf(CMD_OK_HEADER, clist.num);
+
+        for (int i = 0; i < clist.num; i++) {
+            printf("<%d> %s", i + 1, clist.commands[i].argv[0]);
+
+            if (clist.commands[i].argc > 1) {
+                printf(" [");
+                for (int j = 1; j < clist.commands[i].argc; j++) {
+                    printf("%s", clist.commands[i].argv[j]);
+                    if (j < clist.commands[i].argc - 1) printf(" ");
+                }
+                printf("]");
+            }
+            printf("\n");
+        }
+
+        free_cmd_list(&clist);
+    }
+
     return OK;
 }
-
 //===================================================================
 // EXECUTION FUNCTIONS - For future assignments
 //===================================================================
