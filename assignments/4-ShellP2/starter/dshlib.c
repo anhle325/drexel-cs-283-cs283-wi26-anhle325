@@ -198,6 +198,11 @@ Built_In_Cmds exec_built_in_cmd(cmd_buff_t *cmd)
 {
     Built_In_Cmds bi_cmd = match_command(cmd->argv[0]);
 
+
+    if (strcmp(cmd->argv[0], "rc") == 0) {
+        printf("%d\n", g_last_rc);
+        return BI_EXECUTED;
+    }
     switch (bi_cmd) {
         case BI_CMD_EXIT:
             // Exit is handled in main loop
