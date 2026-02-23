@@ -154,18 +154,8 @@ int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff)
  */
 Built_In_Cmds match_command(const char *input)
 {
-    if (strcmp(input, EXIT_CMD) == 0) {
-        return BI_CMD_EXIT;
-    }
-    if (strcmp(input, DRAGON_CMD) == 0) {
-        return BI_CMD_DRAGON;
-    }
-    if (strcmp(input, CD_CMD) == 0) {
-        return BI_CMD_CD;
-    }
-    if (strcmp(input, RC_CMD) == 0) {
-        return BI_CMD_RC;
-    }
+    if (strcmp(input, EXIT_CMD) == 0) return BI_CMD_EXIT;
+    if (strcmp(input, "cd") == 0) return BI_CMD_CD;
     return BI_NOT_BI;
 }
 
@@ -213,18 +203,10 @@ Built_In_Cmds exec_built_in_cmd(cmd_buff_t *cmd)
             // Exit is handled in main loop
             return BI_CMD_EXIT;
 
-        case BI_CMD_DRAGON:
-            // Extra credit from Part 1
-            #ifdef DRAGON_IMPLEMENTED
-            print_dragon();
-            #else
-            printf("Dragon not implemented\n");
-            #endif
-            return BI_EXECUTED;
-
         case BI_CMD_CD:
-            if (cmd->argc < 2) return BI_EXECUTED;
-            if (chdir(cmd->argv[1]) != 0) perror("cd");
+            if (cmd->argc < 2) { g_last_rc = 0; return BI_EXECUTED; }
+            if (chdir(cmd->argv[1]) != 0) { perror("cd"); g_last_rc = 1; }
+            else g_last_rc = 0;
             return BI_EXECUTED;
             // Requirements:
             //   1. If argc == 1: do nothing (no directory specified)
@@ -232,11 +214,6 @@ Built_In_Cmds exec_built_in_cmd(cmd_buff_t *cmd)
             //   3. If chdir fails: call perror("cd")
             //   4. Return BI_EXECUTED
 
-        case BI_CMD_RC:
-            // Extra credit - print last return code
-            // TODO: Implement if doing extra credit
-            printf("%d\n", g_last_rc);
-            return BI_EXECUTED;
 
         default:
             // Not a built-in command
