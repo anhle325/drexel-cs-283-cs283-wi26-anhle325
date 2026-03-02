@@ -110,6 +110,7 @@ int clear_cmd_buff(cmd_buff_t *cmd_buff)
  * @param cmd_buff: Allocated cmd_buff_t to populate
  * @return: OK on success, WARN_NO_CMDS if empty, error code on failure
  */
+
 int build_cmd_buff(char *cmd_line, cmd_buff_t *cmd_buff)
 {
     if (cmd_line == NULL || cmd_buff == NULL || cmd_buff->_cmd_buffer == NULL) return ERR_MEMORY;
