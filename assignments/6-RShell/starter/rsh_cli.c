@@ -1,4 +1,3 @@
-
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <stdio.h>
@@ -98,7 +97,10 @@ int exec_remote_cmd_loop(char *address, int port)
     ssize_t io_size;
     int is_eof;
 
-    // TODO set up cmd and response buffs
+    cmd_buff = malloc(SH_CMD_MAX);
+    rsp_buff = malloc(RDSH_COMM_BUFF_SZ);
+    if (!cmd_buff || !rsp_buff)
+        return client_cleanup(-1, cmd_buff, rsp_buff, ERR_MEMORY);
 
     cli_socket = start_client(address,port);
     if (cli_socket < 0){
@@ -108,15 +110,44 @@ int exec_remote_cmd_loop(char *address, int port)
 
     while (1) 
     {
-        // TODO print prompt
+        printf("%s", SH_PROMPT);
+        fflush(stdout);
 
-        // TODO fgets input
+        if (fgets(cmd_buff, SH_CMD_MAX, stdin) == NULL) {
+            printf("\n");
+            break;
+        }
 
-        // TODO send() over cli_socket
+        cmd_buff[strcspn(cmd_buff, "\n")] = '\0';
 
-        // TODO recv all the results
+        io_size = send(cli_socket, cmd_buff, strlen(cmd_buff) + 1, 0);
+        if (io_size < 0)
+            return client_cleanup(cli_socket, cmd_buff, rsp_buff, ERR_RDSH_COMMUNICATION);
 
-        // TODO break on exit command
+        while (1) {
+            io_size = recv(cli_socket, rsp_buff, RDSH_COMM_BUFF_SZ, 0);
+            if (io_size < 0)
+                return client_cleanup(cli_socket, cmd_buff, rsp_buff, ERR_RDSH_COMMUNICATION);
+            if (io_size == 0) {
+                printf("%s", RCMD_SERVER_EXITED);
+                return client_cleanup(cli_socket, cmd_buff, rsp_buff, OK);
+            }
+
+            is_eof = (rsp_buff[io_size - 1] == RDSH_EOF_CHAR) ? 1 : 0;
+            if (is_eof)
+                io_size--;
+
+            if (io_size > 0)
+                printf("%.*s", (int)io_size, rsp_buff);
+
+            if (is_eof)
+                break;
+        }
+
+        if (strcmp(cmd_buff, EXIT_CMD) == 0)
+            break;
+        if (strcmp(cmd_buff, "stop-server") == 0)
+            break;
     }
 
     return client_cleanup(cli_socket, cmd_buff, rsp_buff, OK);
@@ -150,8 +181,23 @@ int start_client(char *server_ip, int port){
     int cli_socket;
     int ret;
 
-    // TODO set up cli_socket
+    cli_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (cli_socket < 0) {
+        perror("socket");
+        return ERR_RDSH_CLIENT;
+    }
 
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family      = AF_INET;
+    addr.sin_port        = htons(port);
+    addr.sin_addr.s_addr = inet_addr(server_ip);
+
+    ret = connect(cli_socket, (struct sockaddr *)&addr, sizeof(addr));
+    if (ret < 0) {
+        perror("connect");
+        close(cli_socket);
+        return ERR_RDSH_CLIENT;
+    }
 
     return cli_socket;
 }

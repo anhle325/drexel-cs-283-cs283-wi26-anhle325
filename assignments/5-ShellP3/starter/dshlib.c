@@ -555,6 +555,7 @@ int exec_local_cmd_loop()
 {
     char cmd_line[SH_CMD_MAX];
     command_list_t clist;
+    clist.num = 0;
 
     while (1) {
         printf("%s", SH_PROMPT);
