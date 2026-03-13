@@ -567,6 +567,11 @@ int exec_local_cmd_loop()
 
         cmd_line[strcspn(cmd_line, "\n")] = '\0';
 
+        if (strcmp(cmd_line, EXIT_CMD) == 0) {
+            printf("exiting...\n");
+            break;
+        }
+
         int rc = build_cmd_list(cmd_line, &clist);
 
         if (rc != OK) {
