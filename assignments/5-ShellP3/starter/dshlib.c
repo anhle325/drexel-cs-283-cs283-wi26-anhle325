@@ -555,6 +555,7 @@ int exec_local_cmd_loop()
 {
     char cmd_line[SH_CMD_MAX];
     command_list_t clist;
+    clist.num = 0;
 
     while (1) {
         printf("%s", SH_PROMPT);
@@ -566,6 +567,11 @@ int exec_local_cmd_loop()
         }
 
         cmd_line[strcspn(cmd_line, "\n")] = '\0';
+
+        if (strcmp(cmd_line, EXIT_CMD) == 0) {
+            printf("exiting...\n");
+            break;
+        }
 
         int rc = build_cmd_list(cmd_line, &clist);
 
