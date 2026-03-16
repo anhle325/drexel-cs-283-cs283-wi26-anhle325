@@ -2,6 +2,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -O2
 TARGET = mini_docker
 SRC = mini_docker.c
+ROOTFS_DIR = nginx-rootfs
 
 .PHONY: all clean rootfs run
 
@@ -19,9 +20,7 @@ run: $(TARGET)
 
 clean:
 	@echo "🧹 Cleaning build artifacts and rootfs..."
-
 	@rm -f $(TARGET)
-
 	@if [ -d "$(ROOTFS_DIR)" ]; then \
 		echo "🔌 Attempting to unmount nested filesystems..."; \
 		sudo fuser -km $(ROOTFS_DIR) || true; \
